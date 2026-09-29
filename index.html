@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>e-PANTHER — Catalogo BFT Burzoni</title>
+<meta name="theme-color" content="#17181A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png">
+<!-- L'indirizzo della cartella («.../catalogo/») apre il catalogo: i siti
+     cercano index.html, e l'app si chiama bft-catalogo-interattivo.html.
+     Il pezzo dopo il # (la scheda, il capitolo) si porta dietro. -->
+<meta http-equiv="refresh" content="0; url=bft-catalogo-interattivo.html">
+<script>location.replace('bft-catalogo-interattivo.html' + location.search + location.hash);</script>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center;
+         font-family: system-ui, sans-serif; background: #FAFAFB; color: #17181A; }
+  @media (prefers-color-scheme: dark) { body { background: #17181A; color: #FAFAFB; } }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<p><a href="bft-catalogo-interattivo.html">e-PANTHER — Catalogo BFT Burzoni</a></p>
+</body>
+</html>
