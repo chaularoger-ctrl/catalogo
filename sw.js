@@ -23,7 +23,7 @@
  * catalogo cambiava ogni giorno, e chi lo aveva gia' aperto ha continuato a
  * vedere quello del 7. Online sarebbe successo a ogni cliente di ritorno.
  */
-const GUSCIO_VERSIONE = 'bft-catalogo-3fe963f9e70f';  // impronta dei file del guscio: la mette genera-app.py, non si tocca a mano
+const GUSCIO_VERSIONE = 'bft-catalogo-e30954ba44b7';  // impronta dei file del guscio: la mette genera-app.py, non si tocca a mano
 const CACHE_IMMAGINI  = 'bft-catalogo-img';        // niente versione: e' roba pesante
 const GUSCIO = [
   './',
