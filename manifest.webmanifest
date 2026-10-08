@@ -1,7 +1,7 @@
 {
   "name": "e-PANTHER — Catalogo BFT Burzoni",
   "short_name": "e-PANTHER",
-  "description": "e-PANTHER, il catalogo utensili BFT Burzoni: 14.676 articoli in 16 capitoli, con disegni quotati, ricerca, parametri di taglio e richiesta di file 3D/2D. Funziona anche senza rete.",
+  "description": "e-PANTHER, il catalogo utensili BFT Burzoni: 14.547 articoli in 16 capitoli, con disegni quotati, ricerca, parametri di taglio e richiesta di file 3D/2D. Funziona anche senza rete.",
   "lang": "it",
   "dir": "ltr",
   "start_url": "./bft-catalogo-interattivo.html",
