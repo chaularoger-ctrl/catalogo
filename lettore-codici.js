@@ -33,7 +33,7 @@
    e risponde [{formato:'qr_code'|'code_128'|'code_39'|'ean_13'|'ean_8', testo}]
    (vuoto se non trova niente). I nomi dei formati sono quelli di
    BarcodeDetector, cosi' il catalogo tratta allo stesso modo le due strade.
-   La finestra: LettoreCodici.apri({testi, letto, chiuso}), vedi li'.
+   La finestra: LettoreCodici.apri({lingua, letto, chiuso, ritorno}), vedi li'.
    Le prove: _test/prova-lettore.js (Node) e _test/edge-lettore.mjs (Edge). */
 (function (radice) {
 'use strict';
@@ -1020,7 +1020,8 @@ function leggi(px, w, h, opz) {
 /* ======================= LA FINESTRA DELLA FOTOCAMERA ======================= */
 /* Solo nel browser. La pagina passa le scritte gia' tradotte (le traduzioni
    stanno nel catalogo) e cosa fare del testo letto:
-     LettoreCodici.apri({testi: {titolo, chiudi, ...}, letto(testo, formato), chiuso(), ritorno})
+     LettoreCodici.apri({lingua: 'it', letto(testo, formato), chiuso(), ritorno})
+   (le scritte sono qui sotto, in TESTI; o.testi ne puo' cambiare qualcuna)
    - la fotocamera dietro, alla risoluzione piu' alta che da' senza fatica
      (1920x1080): il QR di un centimetro ne ha bisogno;
    - ogni 150 ms un fotogramma va letto. Dove il browser ha un lettore suo
@@ -1066,6 +1067,49 @@ var STILE = [
   '@media(max-width:600px){.lett{padding:0}.lett-box{max-width:none;height:100%;border:0;border-radius:0}.lett-vista{aspect-ratio:auto}}'
 ].join('\n');
 var F = null;                 // la finestra aperta
+/* Le scritte della finestra, nelle tre lingue: stanno qui e non nel dizionario
+   della pagina perche' le scarica solo chi apre la fotocamera (il primo avvio e'
+   a un passo dal megabyte). La pagina dice la lingua; prova-lettore.js guarda
+   che ogni lingua abbia tutte le voci. */
+var TESTI = {
+  it: { titolo: 'Leggi il codice dell’etichetta', chiudi: 'Chiudi', apro: 'Sto aprendo la fotocamera…',
+    inquadra: 'Inquadra il QR o il codice a barre dell’etichetta: si legge da solo.',
+    webcam: 'Tieni l’etichetta ferma davanti alla webcam, a 20-30 cm, col QR rivolto verso di lei e ben illuminata. Se non la legge, usa una foto.',
+    luce: 'Accendi la luce', zoom: 'Ingrandisci 2×', foto: 'Usa una foto',
+    privacy: 'Le immagini restano su questo dispositivo: il catalogo le legge e non le manda a nessuno.',
+    noCam: 'Qui la fotocamera non si può aprire: si può usare una foto dell’etichetta.',
+    negato: 'Il permesso per la fotocamera è stato negato: si può dare dalle impostazioni del browser, o usare una foto.',
+    manca: 'Non trovo una fotocamera: si può usare una foto dell’etichetta.',
+    occupata: 'La fotocamera è occupata da un’altra app: chiudila e riprova, o usa una foto.',
+    nonSiApre: 'La fotocamera non si apre: si può usare una foto dell’etichetta.',
+    leggoFoto: 'Leggo la foto…',
+    nienteFoto: 'In questa foto non trovo un QR né un codice a barre: avvicinati all’etichetta, con più luce.' },
+  en: { titolo: 'Read the label code', chiudi: 'Close', apro: 'Opening the camera…',
+    inquadra: 'Point the camera at the QR code or barcode on the label: it is read automatically.',
+    webcam: 'Hold the label still in front of the webcam, 20-30 cm away, with the QR code facing it and well lit. If it is not read, use a photo.',
+    luce: 'Turn on the light', zoom: 'Zoom 2×', foto: 'Use a photo',
+    privacy: 'The images stay on this device: the catalogue reads them and sends them to no one.',
+    noCam: 'The camera cannot be opened here: you can use a photo of the label.',
+    negato: 'Camera access was denied: you can allow it in the browser settings, or use a photo.',
+    manca: 'No camera found: you can use a photo of the label.',
+    occupata: 'The camera is in use by another app: close it and try again, or use a photo.',
+    nonSiApre: 'The camera does not open: you can use a photo of the label.',
+    leggoFoto: 'Reading the photo…',
+    nienteFoto: 'No QR code or barcode found in this photo: get closer to the label, with more light.' },
+  de: { titolo: 'Etikettencode lesen', chiudi: 'Schließen', apro: 'Die Kamera wird geöffnet…',
+    inquadra: 'Richten Sie die Kamera auf den QR-Code oder Barcode des Etiketts: er wird automatisch gelesen.',
+    webcam: 'Halten Sie das Etikett ruhig vor die Webcam, 20-30 cm entfernt, mit dem QR-Code zur Kamera und gut beleuchtet. Wird es nicht gelesen, verwenden Sie ein Foto.',
+    luce: 'Licht einschalten', zoom: 'Zoom 2×', foto: 'Foto verwenden',
+    privacy: 'Die Bilder bleiben auf diesem Gerät: der Katalog liest sie und sendet sie an niemanden.',
+    noCam: 'Die Kamera lässt sich hier nicht öffnen: Sie können ein Foto des Etiketts verwenden.',
+    negato: 'Der Zugriff auf die Kamera wurde verweigert: Sie können ihn in den Browsereinstellungen erlauben oder ein Foto verwenden.',
+    manca: 'Keine Kamera gefunden: Sie können ein Foto des Etiketts verwenden.',
+    occupata: 'Die Kamera wird von einer anderen App verwendet: schließen Sie sie und versuchen Sie es erneut, oder verwenden Sie ein Foto.',
+    nonSiApre: 'Die Kamera öffnet sich nicht: Sie können ein Foto des Etiketts verwenden.',
+    leggoFoto: 'Das Foto wird gelesen…',
+    nienteFoto: 'In diesem Foto ist kein QR-Code und kein Barcode zu finden: gehen Sie näher an das Etikett heran, mit mehr Licht.' }
+};
+function scritte(o) { var t = {}, k, l = TESTI[o.lingua] || {}; for (k in TESTI.it) t[k] = l[k] || TESTI.it[k]; for (k in (o.testi || {})) t[k] = o.testi[k]; return t; }
 
 function sicuro(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
 function icona(d) {
@@ -1078,7 +1122,7 @@ function nota(t, err) {
 function apri(o) {
   if (F) return;
   o = o || {};
-  var doc = document, t = o.testi || {};
+  var doc = document, t = scritte(o);
   if (!doc.getElementById('lett-stile')) { var st = doc.createElement('style'); st.id = 'lett-stile'; st.textContent = STILE; doc.head.appendChild(st); }
   var box = doc.createElement('div');
   box.className = 'lett'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'lettTit');
@@ -1285,7 +1329,7 @@ api._interni = { grigi: grigi, binarizza: binarizza, mirini: mirini, terne: tern
   EC_BLOCCO: EC_BLOCCO, BLOCCHI: BLOCCHI, FORMATI: FORMATI, VERSIONI: VERSIONI, utf8: utf8,
   corse: corse, profilo: profilo, barre: barre, c128: c128, c39: c39, ean: ean, C128: C128, C39: C39, C39A: C39A,
   raddoppia: raddoppia, nitido: nitido,
-  EAN_L: EAN_L, EAN_PRIMA: EAN_PRIMA, leggiQR: leggiQR, leggi1D: leggi1D };
+  EAN_L: EAN_L, EAN_PRIMA: EAN_PRIMA, leggiQR: leggiQR, leggi1D: leggi1D, TESTI: TESTI, scritte: scritte };
 radice.LettoreCodici = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : this);
