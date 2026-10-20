@@ -23,14 +23,19 @@
  * catalogo cambiava ogni giorno, e chi lo aveva gia' aperto ha continuato a
  * vedere quello del 7. Online sarebbe successo a ogni cliente di ritorno.
  */
-const GUSCIO_VERSIONE = 'bft-catalogo-011390231c14';  // impronta dei file del guscio: la mette genera-app.py, non si tocca a mano
+const GUSCIO_VERSIONE = 'bft-catalogo-fdf1e7bf4ed8';  // impronta dei file del guscio: la mette genera-app.py, non si tocca a mano
 const CACHE_IMMAGINI  = 'bft-catalogo-img';        // niente versione: e' roba pesante
+/* Il lettore dei codici delle etichette (20/10/2026) sta qui dentro anche se
+   all'apertura non serve: una cinquantina di KB (una quindicina compressi), e
+   chi inquadra un'etichetta in magazzino spesso e' proprio dove la rete non
+   arriva. Non e' nell'HTML per non pesare sul primo avvio (vedi prova-pwa.js). */
 const GUSCIO = [
   './',
   './bft-catalogo-interattivo.html',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './lettore-codici.js',
 ];
 
 self.addEventListener('install', (e) => {
