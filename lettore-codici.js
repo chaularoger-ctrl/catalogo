@@ -951,13 +951,55 @@ function leggi1D(g, w, h) {
   return null;
 }
 
+/* ======================= IL QR PICCOLO E SFOCATO ======================= */
+/* La webcam di un PC ha il fuoco fisso: da vicino il QR di un centimetro e'
+   sfocato, da lontano e' di due pixel a modulo. Ingrandito due volte e reso piu'
+   nitido (il pixel meno la media dei 5x5 intorno) se ne recupera una parte:
+   prova del 20/10/2026, 16 scene per caso, a 2,1 px a modulo un po' sfocato da
+   0 a 12, a 2,7 sfocato da 8 a 15, a 3 molto sfocato da 0 a 12. Con la sola
+   nitidezza, senza ingrandire, quasi niente. */
+function raddoppia(g, w, h) {
+  var W = w * 2, H = h * 2, o = new Uint8ClampedArray(W * H);
+  for (var y = 0; y < H; y++) {
+    var sy = Math.min(h - 1.001, Math.max(0, (y + 0.5) / 2 - 0.5)), y0 = sy | 0, fy = sy - y0;
+    for (var x = 0; x < W; x++) {
+      var sx = Math.min(w - 1.001, Math.max(0, (x + 0.5) / 2 - 0.5)), x0 = sx | 0, fx = sx - x0, i = y0 * w + x0;
+      o[y * W + x] = (g[i] * (1 - fx) + g[i + 1] * fx) * (1 - fy) + (g[i + w] * (1 - fx) + g[i + w + 1] * fx) * fy;
+    }
+  }
+  return o;
+}
+function nitido(g, w, h) {
+  var S = new Float64Array((w + 1) * (h + 1)), x, y;            // l'immagine integrale: una media in quattro letture
+  for (y = 0; y < h; y++) {
+    var riga = 0;
+    for (x = 0; x < w; x++) { riga += g[y * w + x]; S[(y + 1) * (w + 1) + x + 1] = S[y * (w + 1) + x + 1] + riga; }
+  }
+  var o = new Uint8ClampedArray(w * h);
+  for (y = 0; y < h; y++) {
+    var ya = Math.max(0, y - 2), yb = Math.min(h, y + 3);
+    for (x = 0; x < w; x++) {
+      var xa = Math.max(0, x - 2), xb = Math.min(w, x + 3);
+      var m = (S[yb * (w + 1) + xb] - S[ya * (w + 1) + xb] - S[yb * (w + 1) + xa] + S[ya * (w + 1) + xa]) / ((yb - ya) * (xb - xa));
+      o[y * w + x] = 2 * g[y * w + x] - m;
+    }
+  }
+  return o;
+}
+
 /* ======================= TUTTO INSIEME ======================= */
 
+/* opz.ingrandisci: se il QR non si legge cosi', si riprova ingrandito e piu'
+   nitido (vedi sopra; costa quattro volte, si usa sul riquadro del mirino). */
 function leggi(px, w, h, opz) {
   opz = opz || {};
   var g = grigi(px, w, h), out = [];
   if (opz.qr !== false) {
     var t = leggiQR(binarizza(g, w, h), w, h);
+    if (t === null && opz.ingrandisci) {
+      var g2 = nitido(raddoppia(g, w, h), 2 * w, 2 * h);
+      t = leggiQR(binarizza(g2, 2 * w, 2 * h), 2 * w, 2 * h);
+    }
     if (t !== null) out.push({ formato: 'qr_code', testo: t });
   }
   if (!out.length && opz.barre !== false) {
@@ -975,8 +1017,11 @@ function leggi(px, w, h, opz) {
      (1920x1080): il QR di un centimetro ne ha bisogno;
    - ogni 150 ms un fotogramma va letto. Dove il browser ha un lettore suo
      (BarcodeDetector, Chrome ed Edge su Android) un giro a lui e uno a questo;
-     a questo un giro il quadrato al centro a piena risoluzione e uno
-     l'immagine intera ridotta (un codice a barre lungo dal quadrato esce);
+     a questo, a turno, il quadrato al centro a piena risoluzione, l'immagine
+     intera ridotta (un codice a barre lungo dal quadrato esce) e il riquadro
+     del mirino, ingrandito e piu' nitido se il QR e' piccolo e sfocato;
+   - la webcam di un PC (che guarda chi sta davanti) si vede a specchio, col
+     consiglio della distanza: a fuoco fisso, da vicino non legge;
    - EAN, UPC e Code 39 hanno un controllo debole: dalla fotocamera valgono
      solo letti due volte uguali. Un QR o un Code 128 basta una volta;
    - «Usa una foto»: una foto scelta o scattata, letta intera e poi al centro;
@@ -997,6 +1042,7 @@ var STILE = [
   '.lett-x:hover{border-color:var(--yellow)}',
   '.lett-vista{position:relative;flex:1 1 auto;min-height:0;aspect-ratio:4/3;background:#000;overflow:hidden;container-type:size}',
   '.lett-vista video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
+  '.lett-vista.specchio video{transform:scaleX(-1)}',
   // il mirino: un quadrato al centro (la parte che si legge meglio), il resto un po' scuro
   '.lett-mirino{position:absolute;left:50%;top:50%;width:56%;aspect-ratio:1/1;width:min(62cqw,62cqh);height:min(62cqw,62cqh);transform:translate(-50%,-50%);border:3px solid var(--yellow);border-radius:14px;box-shadow:0 0 0 100vmax rgba(0,0,0,.36);pointer-events:none}',
   '.lett-nota{margin:0;padding:12px 16px 2px;font-size:14.5px;line-height:1.45;color:#E6E7EA}',
@@ -1113,7 +1159,18 @@ async function camera() {
   var v = f.video; v.muted = true; v.srcObject = s;
   try { await v.play(); } catch (e) { }
   if (F !== f) return;
-  nota(t.inquadra);
+  /* La webcam di un PC guarda chi sta davanti: l'immagine va a specchio (come in
+     uno specchio: l'etichetta spostata a sinistra va a sinistra; senza, si
+     centrava a fatica) e il consiglio e' un altro, perche' a fuoco fisso da
+     vicino non legge. Il lettore lavora sull'immagine vera, non su quella a
+     specchio. Una webcam USB spesso non dice da che parte guarda: su un
+     computer (non al tocco) vale come davanti. */
+  var st = {}, tocco = false;
+  try { st = f.traccia && f.traccia.getSettings ? f.traccia.getSettings() : {}; } catch (e) { }
+  try { tocco = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches); } catch (e) { }
+  var davanti = st.facingMode === 'user' || (!st.facingMode && !tocco);
+  f.box.querySelector('.lett-vista').classList.toggle('specchio', davanti);
+  nota(davanti && t.webcam ? t.webcam : t.inquadra);
   try {
     var c = f.traccia && f.traccia.getCapabilities ? f.traccia.getCapabilities() : {};
     if (c && c.torch) f.box.querySelector('.lett-luce').hidden = false;
@@ -1128,12 +1185,17 @@ function cambia(b, vincolo) {
 }
 function luce(e) { if (F && F.traccia) cambia(e.currentTarget, function (si) { return { torch: si }; }); }
 function ingrandisci(e) { if (F && F.traccia && F.zoom) cambia(e.currentTarget, function (si) { return { zoom: si ? Math.min(2, F.zoom.max) : F.zoom.min }; }); }
-/* L'immagine per questo lettore: il quadrato al centro (il mirino e un po' di
-   margine) a piena risoluzione fino a max px, o l'immagine intera ridotta. */
-function fotogramma(src, w, h, intero, max) {
+/* L'immagine per questo lettore, in tre modi: 'centro' il quadrato al centro (il
+   mirino e un po' di margine, 0,9 del lato corto), 'mirino' il solo riquadro del
+   mirino (0,5), tutti e due a piena risoluzione fino a max px; 'intero' tutta
+   l'immagine ridotta a max px. */
+function fotogramma(src, w, h, modo, max) {
   var sx = 0, sy = 0, sw = w, sh = h, ow, oh;
-  if (intero) { var k = Math.min(1, max / Math.max(w, h)); ow = Math.round(w * k); oh = Math.round(h * k); }
-  else { var l = Math.round(Math.min(w, h) * 0.9); sx = Math.round((w - l) / 2); sy = Math.round((h - l) / 2); sw = sh = l; ow = oh = Math.min(l, max); }
+  if (modo === 'intero') { var k = Math.min(1, max / Math.max(w, h)); ow = Math.round(w * k); oh = Math.round(h * k); }
+  else {
+    var l = Math.round(Math.min(w, h) * (modo === 'mirino' ? 0.5 : 0.9));
+    sx = Math.round((w - l) / 2); sy = Math.round((h - l) / 2); sw = sh = l; ow = oh = Math.min(l, max);
+  }
   var c = F.tela || (F.tela = document.createElement('canvas'));
   if (c.width !== ow) c.width = ow;
   if (c.height !== oh) c.height = oh;
@@ -1153,9 +1215,13 @@ function giro() {
       function () { f.lavora = false; f.rilevatore = null; });   // un lettore che sbaglia si lascia stare
     return;
   }
+  /* a giri: il centro a piena risoluzione; tutta l'immagine (un codice a barre
+     lungo dal quadrato esce); il riquadro del mirino, e se il QR li' e' piccolo
+     e sfocato (la webcam del PC) ingrandito e piu' nitido */
   try {
-    var intero = (f.nostro++) % 2 === 1, im = fotogramma(v, v.videoWidth, v.videoHeight, intero, intero ? 1280 : 1000);
-    var r = leggi(im.data, im.width, im.height);
+    var modo = ['centro', 'intero', 'mirino'][(f.nostro++) % 3];
+    var im = fotogramma(v, v.videoWidth, v.videoHeight, modo, modo === 'intero' ? 1280 : modo === 'mirino' ? 700 : 1000);
+    var r = leggi(im.data, im.width, im.height, modo === 'mirino' ? { ingrandisci: true, barre: false } : null);
     if (r.length) trovato(r[0].testo, r[0].formato);
   } catch (e) { }
 }
@@ -1190,10 +1256,11 @@ async function foto(file) {
   if (img && F === f) {
     var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
     try { if (f.rilevatore) { var r0 = await f.rilevatore.detect(img); if (r0 && r0.length && F === f) { trovato(r0[0].rawValue, r0[0].format, true); return; } } } catch (e) { }
-    var prove = [true, false];
+    var prove = ['intero', 'centro', 'mirino'];
     try {
       for (var i = 0; i < prove.length && F === f; i++) {
-        var im = fotogramma(img, w, h, prove[i], 1600), r = leggi(im.data, im.width, im.height);
+        var im = fotogramma(img, w, h, prove[i], prove[i] === 'mirino' ? 800 : 1600);
+        var r = leggi(im.data, im.width, im.height, prove[i] === 'mirino' ? { ingrandisci: true, barre: false } : null);
         if (r.length) { trovato(r[0].testo, r[0].formato, true); return; }
       }
     } catch (e) { }
@@ -1209,6 +1276,7 @@ api._interni = { grigi: grigi, binarizza: binarizza, mirini: mirini, terne: tern
   correggi: correggi, ESP: ESP, LOG: LOG, mul: mul, testoQR: testoQR, decodificaMatrice: decodificaMatrice,
   EC_BLOCCO: EC_BLOCCO, BLOCCHI: BLOCCHI, FORMATI: FORMATI, VERSIONI: VERSIONI, utf8: utf8,
   corse: corse, profilo: profilo, barre: barre, c128: c128, c39: c39, ean: ean, C128: C128, C39: C39, C39A: C39A,
+  raddoppia: raddoppia, nitido: nitido,
   EAN_L: EAN_L, EAN_PRIMA: EAN_PRIMA, leggiQR: leggiQR, leggi1D: leggi1D };
 radice.LettoreCodici = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
