@@ -93,11 +93,15 @@ function binarizza(g, w, h) {
 function mirini(bit, w, h) {
   var cand = [];
   function nero(x, y) { return bit[y * w + x] === 1; }
-  // nero-bianco-NERO-bianco-nero in proporzione 1:1:3:1:1
+  /* nero-bianco-NERO-bianco-nero in proporzione 1:1:3:1:1. Ogni fascia puo'
+     sbagliare di 0,7 moduli (ZXing ne concede mezzo): sull'etichetta di un tubo
+     (20/10/2026, TJ200 TM 16 032.ED10 Z5 W) il lato del QR che gira via dalla
+     luce e' in ombra, e l'anello bianco del mirino di destra da 4 pixel ne
+     restava 2. Con mezzo modulo quel mirino non si trovava. */
   function croce(c, larga) {
     var t = c[0] + c[1] + c[2] + c[3] + c[4];
     if (t < 7) return false;
-    var m = t / 7, d = larga ? m / 1.333 : m / 2;
+    var m = t / 7, d = larga ? m / 1.333 : m * 0.7;
     return Math.abs(m - c[0]) < d && Math.abs(m - c[1]) < d && Math.abs(3 * m - c[2]) < 3 * d &&
       Math.abs(m - c[3]) < d && Math.abs(m - c[4]) < d;
   }
@@ -662,10 +666,14 @@ function decodificaMatrice(m, dim) {
    Allora lo si sposta un modulo per volta intorno alla stima, dai passi piu'
    corti, e vale la posizione che la correzione degli errori accetta: un QR
    campionato male non passa il Reed-Solomon. */
+/* I QR piccoli (versioni 1 e 2, quelli delle etichette) a mezzo modulo per
+   volta: sul tubo il QR e' schiacciato di lato del 15%, di piu' verso il bordo
+   che gira via, e la griglia lo segue solo con l'angolo spostato di mezzo
+   modulo (20/10/2026, prima non si leggeva). */
 function cercaAngolo(bit, w, h, o, base, s4, dim) {
   var e = dim - 7, ux = (o.tr.x - o.tl.x) / e, uy = (o.tr.y - o.tl.y) / e, vx = (o.bl.x - o.tl.x) / e, vy = (o.bl.y - o.tl.y) / e;
-  var R = dim <= 41 ? 5 : 3, passi = [], a, b;
-  for (a = -R; a <= R; a++) for (b = -R; b <= R; b++) if (a || b) passi.push([a, b, a * a + b * b]);
+  var R = dim <= 41 ? 5 : 3, passo = dim <= 25 ? 0.5 : 1, passi = [], a, b;
+  for (a = -R; a <= R; a += passo) for (b = -R; b <= R; b += passo) if (a || b) passi.push([a, b, a * a + b * b]);
   passi.sort(function (p, q) { return p[2] - q[2]; });
   for (var i = 0; i < passi.length; i++) {
     var p = { x: base.x + passi[i][0] * ux + passi[i][1] * vx, y: base.y + passi[i][0] * uy + passi[i][1] * vy };

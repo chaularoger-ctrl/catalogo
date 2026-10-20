@@ -23,7 +23,7 @@
  * catalogo cambiava ogni giorno, e chi lo aveva gia' aperto ha continuato a
  * vedere quello del 7. Online sarebbe successo a ogni cliente di ritorno.
  */
-const GUSCIO_VERSIONE = 'bft-catalogo-ac21c54d3bc3';  // impronta dei file del guscio: la mette genera-app.py, non si tocca a mano
+const GUSCIO_VERSIONE = 'bft-catalogo-b4560723ab67';  // impronta dei file del guscio: la mette genera-app.py, non si tocca a mano
 const CACHE_IMMAGINI  = 'bft-catalogo-img';        // niente versione: e' roba pesante
 /* Il lettore dei codici delle etichette (20/10/2026) sta qui dentro anche se
    all'apertura non serve: una cinquantina di KB (una quindicina compressi), e
